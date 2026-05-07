@@ -1,1 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-Browser YT Downloader</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding-top: 50px; background: #f4f4f9; }
+        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #ff0000; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:disabled { background-color: #ccc; }
+        #status { margin-top: 15px; font-size: 0.9rem; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>YT Downloader</h2>
+    <input type="text" id="videoUrl" placeholder="Enter YouTube URL (e.g. https://www.youtube.com/watch?v=...)">
+    <button id="downloadBtn">Get Download Link</button>
+    <div id="status"></div>
+</div>
+
+<!-- Importing YouTube.js via ESM -->
+<script type="module">
+    import { Innertube } from 'https://esm.sh';
+
+    const downloadBtn = document.getElementById('downloadBtn');
+    const status = document.getElementById('status');
+
+    downloadBtn.addEventListener('click', async () => {
+        const url = document.getElementById('videoUrl').value;
+        if (!url) return alert('Please enter a URL');
+
+        try {
+            downloadBtn.disabled = true;
+            status.innerText = 'Initializing...';
+
+            // Use a CORS proxy to bypass browser restrictions
+            const youtube = await Innertube.create({ 
+                fetch: (url, options) => fetch(`https://herokuapp.com{url}`, options) 
+            });
+
+            status.innerText = 'Fetching video info...';
+            const videoId = url.split('v=')[1]?.split('&')[0];
+            if (!videoId) throw new Error('Invalid YouTube URL');
+
+            const info = await youtube.getInfo(videoId);
+            
+            // Get the best combined (video + audio) format
+            const format = info.chooseFormat({ type: 'video+audio', quality: 'best' });
+            
+            if (format) {
+                status.innerHTML = `<a href="${format.url}" target="_blank" download="video.mp4">Click here to download "${info.basic_info.title}"</a>`;
+            } else {
+                status.innerText = 'Could not find a suitable format.';
+            }
+        } catch (err) {
+            console.error(err);
+            status.innerText = 'Error: ' + err.message + '. (Make sure you activated the CORS proxy demo at https://herokuapp.com)';
+        } finally {
+            downloadBtn.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>
 
